@@ -289,3 +289,19 @@ CREATE TABLE product_feature (
 -- ============================================================
 
 SHOW TABLES;
+
+
+
+
+-- CHANGES DONE
+USE smartfind;
+ALTER TABLE product
+DROP INDEX idx_product_name;
+ALTER TABLE product
+MODIFY COLUMN name VARCHAR(1000) NOT NULL;
+CREATE INDEX idx_product_name
+ON product (name(191));
+
+
+
+

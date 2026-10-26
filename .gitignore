@@ -141,3 +141,9 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+
+review_dataset_complete.py
+SmartFind_Dataset/_review_extraction_temp.sqlite
+__pycache__/
+*.py[cod]

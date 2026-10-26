@@ -143,3 +143,5 @@ for folder, category in CATEGORIES.items():
 print("\n" + "=" * 70)
 print("ALL CATEGORIES COMPLETED")
 print("=" * 70)
+
+
