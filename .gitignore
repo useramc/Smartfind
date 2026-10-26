@@ -147,3 +147,9 @@ review_dataset_complete.py
 SmartFind_Dataset/_review_extraction_temp.sqlite
 __pycache__/
 *.py[cod]
+
+.env
+venv/
+.venv/
+__pycache__/
+*.py[cod]
