@@ -50,7 +50,7 @@ CREATE TABLE product (
     parent_asin VARCHAR(20) NOT NULL UNIQUE,
     category_id INT UNSIGNED NOT NULL,
 
-    name VARCHAR(500) NOT NULL,
+    name VARCHAR(1000) NOT NULL,
     description TEXT NULL,
     brand VARCHAR(255) NULL,
 
@@ -79,7 +79,7 @@ CREATE TABLE product (
             OR average_rating BETWEEN 0 AND 5
         ),
 
-    INDEX idx_product_name (name),
+    INDEX idx_product_name (name(191)),
     INDEX idx_product_rating (average_rating),
     INDEX idx_product_price (price),
     INDEX idx_product_category (category_id)
@@ -280,19 +280,3 @@ CREATE TABLE product_feature (
 -- ============================================================
 
 SHOW TABLES;
-
-
-
-
--- CHANGES DONE
-USE smartfind;
-ALTER TABLE product
-DROP INDEX idx_product_name;
-ALTER TABLE product
-MODIFY COLUMN name VARCHAR(1000) NOT NULL;
-CREATE INDEX idx_product_name
-ON product (name(191));
-
-
-
-

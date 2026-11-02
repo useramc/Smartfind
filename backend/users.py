@@ -1,6 +1,6 @@
 """Saved products, interactions and personalised recommendations."""
 import numpy as np
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -41,13 +41,15 @@ class ClickIn(BaseModel):
 
 @router.post("/click")
 def click(body: ClickIn, uid: int = Depends(current_user), db: Session = Depends(get_db)):
+    if not db.execute(text("SELECT 1 FROM product WHERE product_id=:p"), {"p": body.product_id}).first():
+        raise HTTPException(404, "Product not found")
     db.execute(text("INSERT INTO product_interaction (user_id, product_id, interaction_type) VALUES (:u,:p,'CLICK')"), {"u": uid, "p": body.product_id})
     db.commit()
     return {"ok": True}
 
 
 @router.get("/recommendations")
-def recommendations(limit: int = 12, uid: int = Depends(current_user), db: Session = Depends(get_db)):
+def recommendations(limit: int = Query(12, ge=1, le=50), uid: int = Depends(current_user), db: Session = Depends(get_db)):
     """Average the embeddings of products the user saved/clicked/viewed (saved weighted highest) and find neighbours."""
     rows = db.execute(text("""SELECT product_id, MAX(CASE interaction_type WHEN 'SAVED' THEN 3 WHEN 'CLICK' THEN 2 ELSE 1 END) w
         FROM product_interaction WHERE user_id=:u GROUP BY product_id ORDER BY MAX(interacted_at) DESC LIMIT 30"""), {"u": uid}).all()
@@ -58,6 +60,9 @@ def recommendations(limit: int = 12, uid: int = Depends(current_user), db: Sessi
     if not pts:
         return {"products": [], "reason": "Products not indexed yet."}
     v = sum(np.array(p.vector) * w[p.id] for p in pts)
-    v = (v / np.linalg.norm(v)).tolist()
+    norm = np.linalg.norm(v)
+    if not norm:
+        return {"products": [], "reason": "Not enough activity to personalise yet."}
+    v = (v / norm).tolist()
     hits = [h for h in vector.query(v, limit + len(w)) if h.id not in w][:limit]
     return {"products": fetch_ordered(db, [h.id for h in hits], {h.id: h.score for h in hits})}

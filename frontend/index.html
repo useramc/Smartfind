@@ -1,56 +1,113 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>SmartFind</title>
+<title>SmartFind – AI Product Discovery</title>
 <style>
-:root{--bg:#f7f7fb;--card:#fff;--fg:#1d1d2b;--mut:#6b6b80;--ac:#5b4bdb;--bd:#e4e4ee}
-@media(prefers-color-scheme:dark){:root{--bg:#14141c;--card:#1e1e2a;--fg:#ececf5;--mut:#9a9ab0;--ac:#8b7cff;--bd:#2c2c3c}}
-*{box-sizing:border-box}body{margin:0;font:15px system-ui,sans-serif;background:var(--bg);color:var(--fg)}
-header{display:flex;gap:12px;align-items:center;justify-content:space-between;padding:14px 24px;border-bottom:1px solid var(--bd);background:var(--card)}
-h1{margin:0;font-size:20px;color:var(--ac)}main{max-width:1100px;margin:0 auto;padding:20px}
-.bar{display:flex;flex-wrap:wrap;gap:8px}input,select,button{font:inherit;padding:10px 12px;border-radius:8px;border:1px solid var(--bd);background:var(--card);color:var(--fg)}
-#q{flex:1;min-width:240px}button{cursor:pointer}button.p{background:var(--ac);color:#fff;border:0}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px;margin-top:18px}
-.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:10px;cursor:pointer;display:flex;flex-direction:column;gap:6px}
-.card img{width:100%;height:160px;object-fit:contain;border-radius:8px;background:#fff}.card h3{font-size:13px;margin:0;line-height:1.3;max-height:3.9em;overflow:hidden}
-.mut{color:var(--mut);font-size:12px}.price{font-weight:600}
-#modal{position:fixed;inset:0;background:#000a;display:none;align-items:flex-start;justify-content:center;overflow:auto;padding:30px 12px}
-#modal .box{background:var(--card);max-width:760px;width:100%;border-radius:14px;padding:20px}
-#modal img.main{max-height:260px;max-width:100%;display:block;margin:auto;background:#fff;border-radius:8px}
-.rev{border-top:1px solid var(--bd);padding:8px 0}.x{float:right}#msg{margin:12px 0;color:var(--mut)}
+:root{--bg:#f6f6fb;--card:#fff;--fg:#1c1c2b;--mut:#6a6a80;--ac:#5b4bdb;--ac2:#7c6cf0;--bd:#e3e3ee;--ok:#1a9d5c;--shadow:0 2px 10px #0000000d}
+@media(prefers-color-scheme:dark){:root{--bg:#12121a;--card:#1c1c28;--fg:#ececf6;--mut:#9a9ab2;--ac:#8b7cff;--ac2:#6f60e8;--bd:#2c2c3e;--shadow:none}}
+*{box-sizing:border-box}body{margin:0;font:15px/1.45 system-ui,-apple-system,Segoe UI,sans-serif;background:var(--bg);color:var(--fg)}
+header{position:sticky;top:0;z-index:5;display:flex;gap:12px;align-items:center;justify-content:space-between;padding:12px 24px;background:var(--card);border-bottom:1px solid var(--bd)}
+h1{margin:0;font-size:21px;color:var(--ac);cursor:pointer}nav{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+main{max-width:1180px;margin:0 auto;padding:20px}
+.hero{text-align:center;padding:18px 0 4px}.hero h2{margin:0 0 4px;font-size:26px}.hero p{margin:0;color:var(--mut)}
+.bar{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+input,select,button{font:inherit;padding:10px 12px;border-radius:10px;border:1px solid var(--bd);background:var(--card);color:var(--fg)}
+input:focus,select:focus{outline:2px solid var(--ac);outline-offset:-1px}
+#q{flex:1;min-width:240px}button{cursor:pointer}button:hover{border-color:var(--ac)}button.p{background:linear-gradient(135deg,var(--ac),var(--ac2));color:#fff;border:0}button.sm{padding:6px 10px;font-size:13px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}.chip{padding:4px 10px;font-size:12px;border-radius:99px;color:var(--mut)}
+#msg{margin:14px 0 0;color:var(--mut);min-height:22px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px;margin-top:14px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:10px;cursor:pointer;display:flex;flex-direction:column;gap:6px;box-shadow:var(--shadow);transition:transform .12s}
+.card:hover{transform:translateY(-2px);border-color:var(--ac)}
+.card .im{height:160px;display:flex;align-items:center;justify-content:center;background:#fff;border-radius:10px;overflow:hidden}.card img{max-width:100%;max-height:100%;object-fit:contain}
+.card h3{font-size:13px;font-weight:500;margin:0;line-height:1.3;height:3.9em;overflow:hidden}
+.mut{color:var(--mut);font-size:12px}.price{font-weight:700}.star{color:#f5a623}.match{color:var(--ok);font-weight:600}
+.pager{display:flex;gap:10px;justify-content:center;align-items:center;margin:22px 0}
+.skel{height:270px;border-radius:14px;background:linear-gradient(90deg,var(--card),var(--bd),var(--card));background-size:200% 100%;animation:sh 1.2s infinite}@keyframes sh{to{background-position:-200% 0}}
+#modal{position:fixed;inset:0;background:#000a;display:none;align-items:flex-start;justify-content:center;overflow:auto;padding:28px 12px;z-index:20}
+#modal .box{position:relative;background:var(--card);max-width:820px;width:100%;border-radius:16px;padding:22px}
+#modal img.main{max-height:280px;max-width:100%;display:block;margin:0 auto 10px;background:#fff;border-radius:10px}
+.thumbs{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-bottom:10px}.thumbs img{height:48px;width:48px;object-fit:contain;background:#fff;border:1px solid var(--bd);border-radius:6px;cursor:pointer}
+.x{position:absolute;top:12px;right:12px}.rev{border-top:1px solid var(--bd);padding:8px 0}
+.src{display:flex;justify-content:space-between;align-items:center;border:1px solid var(--bd);border-radius:10px;padding:8px 12px;margin:6px 0}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.sim{display:flex;gap:10px;overflow-x:auto;padding-bottom:6px}.sim .card{min-width:150px;max-width:150px}.sim .im{height:100px!important}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 18px;border-radius:10px;display:none;z-index:30}
+form input{width:100%;margin-bottom:10px}
 </style></head><body>
-<header><h1>🔎 SmartFind</h1><div id="auth"></div></header>
+<header><h1 onclick="home()">🔎 SmartFind</h1><nav><button class="sm" onclick="showSaved()">♥ Saved</button><button class="sm" onclick="showRecs()">✨ For you</button><button class="sm" onclick="showHistory()">🕘 History</button><span id="auth"></span></nav></header>
 <main>
-<div class="bar"><input id="q" placeholder='Try: "lightweight laptop bag for travel under 2000"'><input id="b" type="number" min="0" placeholder="Max budget" style="width:130px">
-<select id="c"><option value="">All categories</option></select><select id="r"><option value="">Any rating</option><option value="4">4★ & up</option><option value="3">3★ & up</option></select>
-<button class="p" onclick="search()">Search</button><button onclick="showSaved()">Saved</button><button onclick="showRecs()">For you</button></div>
-<div id="msg">Describe what you need in plain language - SmartFind finds products by meaning, not just keywords.</div><div class="grid" id="grid"></div></main>
-<div id="modal" onclick="if(event.target===this)this.style.display='none'"><div class="box" id="box"></div></div>
+<div class="hero"><h2>Find products by meaning, not keywords</h2><p>Describe what you need in plain language — budgets like “under 2000” are understood automatically.</p></div>
+<div class="bar"><input id="q" placeholder='Try: "lightweight laptop bag for travel under 100"' autofocus>
+<input id="b" type="number" min="0" placeholder="Max budget" style="width:130px">
+<select id="c"><option value="">All categories</option></select>
+<select id="r"><option value="">Any rating</option><option value="4">4★ &amp; up</option><option value="3">3★ &amp; up</option></select>
+<button class="p" onclick="search()">Search</button></div>
+<div class="bar" style="margin-top:8px"><span class="mut" style="align-self:center">Or browse:</span>
+<select id="s" onchange="browse(0)"><option value="popular">Most reviewed</option><option value="rating">Top rated</option><option value="price_asc">Price: low to high</option><option value="price_desc">Price: high to low</option><option value="id">Default</option></select>
+<button class="sm" onclick="browse(0)">Browse catalogue</button></div>
+<div class="chips" id="chips"></div>
+<div id="msg"></div><div class="grid" id="grid"></div><div class="pager" id="pager"></div>
+</main>
+<div id="modal" onclick="if(event.target===this)closeBox()"><div class="box" id="box"></div></div><div id="toast"></div>
 <script>
-let token=localStorage.sf_token||"",user=JSON.parse(localStorage.sf_user||"null");
-const $=id=>document.getElementById(id),esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const $=id=>document.getElementById(id),PAGE=20;
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+let token=localStorage.getItem("sf_token")||"",user=null,saved=new Set(),mode="";
+try{user=JSON.parse(localStorage.getItem("sf_user")||"null")}catch(e){}
+function toast(t){const e=$("toast");e.textContent=t;e.style.display="block";clearTimeout(toast.t);toast.t=setTimeout(()=>e.style.display="none",2200)}
 async function api(path,opt={}){opt.headers={"Content-Type":"application/json",...(token?{Authorization:"Bearer "+token}:{}),...(opt.headers||{})};
- const r=await fetch(path,opt);const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.detail||r.statusText);return d}
-function renderAuth(){$("auth").innerHTML=user?`Hi, ${esc(user.name)} <button onclick="logout()">Logout</button>`:`<button onclick="authForm()">Login / Register</button>`}
-function logout(){token="";user=null;localStorage.removeItem("sf_token");localStorage.removeItem("sf_user");renderAuth()}
-function authForm(){openBox(`<h3>Login / Register</h3><input id="an" placeholder="Name (register only)"><br><br><input id="ae" placeholder="Email"><br><br><input id="ap" type="password" placeholder="Password"><br><br>
-<button class="p" onclick="doAuth('login')">Login</button> <button onclick="doAuth('register')">Register</button> <span id="ae2" class="mut"></span>`)}
-async function doAuth(kind){try{const body={email:$("ae").value,password:$("ap").value};if(kind=="register")body.name=$("an").value||"User";
- const d=await api("/auth/"+kind,{method:"POST",body:JSON.stringify(body)});token=d.token;user=d.user;localStorage.sf_token=token;localStorage.sf_user=JSON.stringify(user);renderAuth();$("modal").style.display="none"}catch(e){$("ae2").textContent=e.message}}
-function openBox(h){$("box").innerHTML=`<button class="x" onclick="$('modal').style.display='none'">✕</button>`+h;$("modal").style.display="flex"}
-function cards(ps){$("grid").innerHTML=ps.map(p=>`<div class="card" onclick="openProduct(${p.product_id})"><img loading="lazy" src="${esc(p.image||"")}" onerror="this.style.visibility='hidden'">
-<h3>${esc(p.name)}</h3><div class="price">${p.price!=null?"$"+p.price:"Price n/a"}</div><div class="mut">${p.average_rating?"★ "+p.average_rating+" ("+p.rating_number+")":"No ratings"}${p.score!=null?" · match "+Math.round(p.score*100)+"%":""}</div></div>`).join("")}
-async function search(){const q=$("q").value.trim();if(q.length<2)return;$("msg").textContent="Searching...";
- try{const d=await api("/search/",{method:"POST",body:JSON.stringify({query:q,budget_max:$("b").value?+$("b").value:null,category_id:$("c").value?+$("c").value:null,min_rating:$("r").value?+$("r").value:null})});
- $("msg").textContent=`${d.count} results`+(d.budget_applied?` · budget ≤ ${d.budget_applied}`:"");cards(d.products)}catch(e){$("msg").textContent="Error: "+e.message}}
-async function showSaved(){try{const d=await api("/me/saved");$("msg").textContent=`${d.products.length} saved`;cards(d.products)}catch(e){$("msg").textContent=e.message;authForm()}}
-async function showRecs(){try{const d=await api("/me/recommendations");$("msg").textContent=d.reason||"Recommended from your activity";cards(d.products)}catch(e){$("msg").textContent=e.message;authForm()}}
-async function openProduct(id){const [p,rv]=await Promise.all([api("/products/"+id),api(`/products/${id}/reviews?limit=5`)]);
- if(token)api("/me/click",{method:"POST",body:JSON.stringify({product_id:id})}).catch(()=>{});
- const feats=(p.features||[]).slice(0,6).map(f=>`<li>${esc(f)}</li>`).join("");
- openBox(`${p.image?`<img class="main" src="${esc(p.image)}">`:""}<h2>${esc(p.name)}</h2><div class="mut">${esc(p.brand||"")} · ${p.price!=null?"$"+p.price:"Price n/a"} · ★ ${p.average_rating??"-"} (${p.rating_number})</div>
- <p><button class="p" onclick="toggleSave(${id})">♡ Save</button> ${p.sources.map(s=>`<a href="${esc(s.product_url)}" target="_blank" rel="noopener">View on ${esc(s.platform_name)}</a>`).join(" ")}</p>
- <ul>${feats}</ul><p>${esc((p.description||"").slice(0,700))}</p><h3>Top reviews</h3>${rv.reviews.map(r=>`<div class="rev"><b>${"★".repeat(Math.round(r.rating))}</b> ${esc(r.review_title)}<div class="mut">${esc((r.review_text||"").slice(0,300))}</div></div>`).join("")||"<span class=mut>No reviews</span>"}`)}
-async function toggleSave(id){try{await api("/me/saved/"+id,{method:"PUT"});alert("Saved!")}catch(e){authForm()}}
-(async()=>{renderAuth();try{(await api("/products/categories")).forEach(c=>$("c").insertAdjacentHTML("beforeend",`<option value="${c.category_id}">${esc(c.category_name)}</option>`))}catch(e){}})();
+ let r;try{r=await fetch(path,opt)}catch(e){throw new Error("Cannot reach the server")}
+ const d=await r.json().catch(()=>({}));
+ if(!r.ok){if(r.status===401&&token&&!/Invalid/.test(d.detail||""))logout(true);throw new Error(typeof d.detail==="string"?d.detail:(d.detail?.[0]?.msg||r.statusText))}return d}
+function renderAuth(){$("auth").innerHTML=user?`<span class="mut">Hi, ${esc(user.name)}</span> <button class="sm" onclick="logout()">Logout</button>`:`<button class="sm p" onclick="authForm()">Login / Register</button>`}
+function logout(silent){token="";user=null;saved=new Set();localStorage.removeItem("sf_token");localStorage.removeItem("sf_user");renderAuth();if(!silent)toast("Logged out")}
+async function loadSaved(){if(!token)return;try{saved=new Set((await api("/me/saved")).products.map(p=>p.product_id))}catch(e){}}
+function openBox(h){$("box").innerHTML=`<button class="x sm" onclick="closeBox()">✕</button>`+h;$("modal").style.display="flex"}
+function closeBox(){$("modal").style.display="none"}
+document.addEventListener("keydown",e=>{if(e.key==="Escape")closeBox()});
+function authForm(){openBox(`<h3>Login / Register</h3><form onsubmit="return false"><input id="an" placeholder="Name (register only)" autocomplete="name"><input id="ae" type="email" placeholder="Email" autocomplete="email"><input id="ap" type="password" placeholder="Password (min 6 characters)" autocomplete="current-password"></form>
+<div class="row"><button class="p" onclick="doAuth('login')">Login</button><button onclick="doAuth('register')">Register</button><span id="aerr" style="color:#d33"></span></div>`)}
+async function doAuth(kind){try{const body={email:$("ae").value.trim(),password:$("ap").value};if(kind==="register")body.name=$("an").value.trim()||"User";
+ const d=await api("/auth/"+kind,{method:"POST",body:JSON.stringify(body)});token=d.token;user=d.user;localStorage.setItem("sf_token",token);localStorage.setItem("sf_user",JSON.stringify(user));renderAuth();closeBox();await loadSaved();toast("Welcome, "+user.name)}catch(e){$("aerr").textContent=e.message}}
+function cards(ps,target="grid"){$(target).innerHTML=ps.map(p=>`<div class="card" onclick="openProduct(${p.product_id})"><div class="im">${p.image?`<img loading="lazy" src="${esc(p.image)}" alt="" onerror="this.remove()">`:'<span class="mut">No image</span>'}</div>
+<h3>${esc(p.name)}</h3><div class="price">${p.price!=null?"$"+Number(p.price).toFixed(2):"Price n/a"}</div><div class="mut">${p.average_rating?`<span class="star">★</span> ${p.average_rating} (${Number(p.rating_number).toLocaleString()})`:"No ratings"}${p.score!=null&&mode==="search"?` · <span class="match">${Math.round(Math.max(0,Math.min(1,p.score))*100)}% match</span>`:""}</div></div>`).join("")}
+function loading(){$("grid").innerHTML=Array(8).fill('<div class="skel"></div>').join("");$("pager").innerHTML=""}
+function empty(t){$("grid").innerHTML="";$("pager").innerHTML="";$("msg").textContent=t}
+function home(){mode="";$("q").value="";empty("");$("chips").innerHTML="";window.scrollTo(0,0)}
+async function search(){const q=$("q").value.trim();if(q.length<2){toast("Type at least 2 characters");return}
+ mode="search";$("msg").textContent="Searching…";loading();
+ try{const d=await api("/search/",{method:"POST",body:JSON.stringify({query:q,budget_max:$("b").value!==""?+$("b").value:null,category_id:$("c").value?+$("c").value:null,min_rating:$("r").value?+$("r").value:null})});
+ $("msg").textContent=`${d.count} results for “${q}”`+(d.budget_applied!=null?` · budget ≤ $${d.budget_applied}`:"")+(d.embedding_backend==="hash"?" · (offline keyword-hash embeddings)":"");
+ d.count?cards(d.products):empty("No matching products. Try a broader description or a higher budget.");$("pager").innerHTML=""}catch(e){empty("Error: "+e.message)}}
+async function browse(off){mode="browse";$("msg").textContent="Loading…";loading();
+ const p=new URLSearchParams({limit:PAGE,offset:off,sort:$("s").value});if($("c").value)p.set("category_id",$("c").value);if($("r").value)p.set("min_rating",$("r").value);if($("b").value!=="")p.set("max_price",$("b").value);
+ const t=$("q").value.trim();if(t)p.set("q",t);
+ try{const d=await api("/products/?"+p);$("msg").textContent=`${d.total.toLocaleString()} products`+(t?` matching “${t}” (keyword)`:"");
+ d.products.length?cards(d.products):empty("No products match these filters.");
+ $("pager").innerHTML=d.total>PAGE?`<button class="sm" ${off<=0?"disabled":""} onclick="browse(${Math.max(0,off-PAGE)});scrollTo(0,0)">← Prev</button><span class="mut">Page ${Math.floor(off/PAGE)+1} of ${Math.ceil(d.total/PAGE)}</span><button class="sm" ${off+PAGE>=d.total?"disabled":""} onclick="browse(${off+PAGE});scrollTo(0,0)">Next →</button>`:""}catch(e){empty("Error: "+e.message)}}
+async function needLogin(fn){if(!token){toast("Please log in first");authForm();return}try{await fn()}catch(e){empty(e.message)}}
+const showSaved=()=>needLogin(async()=>{mode="saved";const d=await api("/me/saved");saved=new Set(d.products.map(p=>p.product_id));$("pager").innerHTML="";$("msg").textContent=`${d.products.length} saved product(s)`;cards(d.products)});
+const showRecs=()=>needLogin(async()=>{mode="recs";loading();const d=await api("/me/recommendations");$("pager").innerHTML="";$("msg").textContent=d.reason||"Recommended from your activity";cards(d.products)});
+const showHistory=()=>needLogin(async()=>{const d=await api("/search/history");$("grid").innerHTML="";$("pager").innerHTML="";$("msg").textContent=d.history.length?"Your recent searches (click to repeat):":"No searches yet.";
+ $("chips").innerHTML=d.history.map(h=>`<button class="chip" onclick="$('q').value=this.dataset.q;search()" data-q="${esc(h.query_text)}">${esc(h.query_text)}</button>`).join("")});
+async function openProduct(id){
+ try{const [p,rv,sim]=await Promise.all([api("/products/"+id),api(`/products/${id}/reviews?limit=5`),api(`/products/${id}/similar?limit=6`).catch(()=>({products:[]}))]);
+ if(token){api("/me/click",{method:"POST",body:JSON.stringify({product_id:id})}).catch(()=>{});if(!saved.size)await loadSaved()}
+ const imgs=(Array.isArray(p.images)?p.images:[]).map(i=>i&&(i.large||i.hi_res||i.thumb)).filter(Boolean).slice(0,6);
+ const feats=(Array.isArray(p.features)?p.features:[]).slice(0,6).map(f=>`<li>${esc(f)}</li>`).join("");
+ const srcs=(p.sources||[]).map(s=>`<div class="src"><span><b>${esc(s.platform_name)}</b> ${s.source_price!=null?"· $"+Number(s.source_price).toFixed(2):""}</span>${s.product_url?`<a href="${esc(s.product_url)}" target="_blank" rel="noopener noreferrer">View on ${esc(s.platform_name)} ↗</a>`:""}</div>`).join("");
+ openBox(`${p.image?`<img class="main" id="mainimg" src="${esc(p.image)}" alt="">`:""}${imgs.length>1?`<div class="thumbs">${imgs.map(u=>`<img src="${esc(u)}" alt="" onclick="$('mainimg').src=this.src">`).join("")}</div>`:""}
+ <h2 style="margin:6px 0">${esc(p.name)}</h2><div class="mut">${esc(p.brand||"")} ${p.main_category?"· "+esc(p.main_category):""} · <b class="price">${p.price!=null?"$"+Number(p.price).toFixed(2):"Price n/a"}</b> · <span class="star">★</span> ${p.average_rating??"–"} (${Number(p.rating_number).toLocaleString()} ratings)</div>
+ <p><button class="p" id="sv" onclick="toggleSave(${id})">${saved.has(id)?"♥ Saved":"♡ Save"}</button></p>
+ <h3>Where to buy</h3>${srcs||'<span class="mut">No source listed</span>'}
+ ${feats?`<h3>Highlights</h3><ul>${feats}</ul>`:""}${p.description?`<p class="mut">${esc(p.description.slice(0,700))}${p.description.length>700?"…":""}</p>`:""}
+ <h3>Top reviews</h3>${rv.reviews.map(r=>`<div class="rev"><b class="star">${"★".repeat(Math.round(r.rating))}</b> <b>${esc(r.review_title||"")}</b><div class="mut">${esc((r.review_text||"").slice(0,320))}</div></div>`).join("")||'<span class="mut">No reviews yet</span>'}
+ ${sim.products.length?`<h3>Similar products</h3><div class="sim" id="simgrid"></div>`:""}`);
+ if(sim.products.length){const m=mode;mode="";cards(sim.products,"simgrid");mode=m}
+ }catch(e){toast("Could not load product: "+e.message)}}
+async function toggleSave(id){if(!token){closeBox();toast("Please log in to save products");authForm();return}
+ try{const was=saved.has(id);await api("/me/saved/"+id,{method:was?"DELETE":"PUT"});was?saved.delete(id):saved.add(id);$("sv").textContent=was?"♡ Save":"♥ Saved";toast(was?"Removed from saved":"Saved!");if(mode==="saved")showSaved()}catch(e){toast(e.message)}}
 $("q").addEventListener("keydown",e=>{if(e.key==="Enter")search()});
+renderAuth();
+(async()=>{try{(await api("/products/categories")).forEach(c=>$("c").insertAdjacentHTML("beforeend",`<option value="${c.category_id}">${esc(c.category_name)}</option>`))}catch(e){$("msg").textContent="Backend not reachable – start it with: uvicorn main:app"}
+ if(token){try{await api("/auth/me")}catch(e){return}await loadSaved()}})();
 </script></body></html>

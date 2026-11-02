@@ -15,7 +15,7 @@ def product_text(r) -> str:
     feats = json.loads(feats) if isinstance(feats, str) else (feats or [])
     cats = r["product_categories"]
     cats = json.loads(cats) if isinstance(cats, str) else (cats or [])
-    parts = [r["name"], r["brand"] or "", " ".join(cats), " ".join(map(str, feats))[:600], (r["description"] or "")[:600]]
+    parts = [r["name"], r["brand"] or "", " ".join(map(str, cats)), " ".join(map(str, feats))[:600], (r["description"] or "")[:600]]
     return ". ".join(p for p in parts if p)
 
 

@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, EmailStr
 from sqlalchemy import text
 from sqlalchemy.orm import Session
-from database import get_db
+from database import get_db  # also loads backend/.env before SECRET is read
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 SECRET = os.getenv("SECRET_KEY", "dev-secret-change-me").encode()
@@ -42,9 +42,12 @@ def parse_token(tok: str):
     return None
 
 
-def optional_user(authorization: str | None = Header(default=None)):
+def optional_user(authorization: str | None = Header(default=None), db: Session = Depends(get_db)):
+    """User id from a valid token whose user still exists, else None (stale tokens must not break FKs)."""
     if authorization and authorization.lower().startswith("bearer "):
-        return parse_token(authorization[7:])
+        uid = parse_token(authorization[7:].strip())
+        if uid is not None and db.execute(text("SELECT 1 FROM user WHERE user_id=:u"), {"u": uid}).first():
+            return uid
     return None
 
 
@@ -69,6 +72,8 @@ class LoginIn(BaseModel):
 def register(body: RegisterIn, db: Session = Depends(get_db)):
     if len(body.password) < 6:
         raise HTTPException(400, "Password must be at least 6 characters")
+    body.email = body.email.lower()
+    body.name = body.name.strip()[:100] or "User"
     if db.execute(text("SELECT 1 FROM user WHERE email=:e"), {"e": body.email}).first():
         raise HTTPException(409, "Email already registered")
     r = db.execute(text("INSERT INTO user (name,email,password_hash) VALUES (:n,:e,:p)"),
@@ -79,7 +84,7 @@ def register(body: RegisterIn, db: Session = Depends(get_db)):
 
 @router.post("/login")
 def login(body: LoginIn, db: Session = Depends(get_db)):
-    u = db.execute(text("SELECT user_id,name,email,password_hash FROM user WHERE email=:e"), {"e": body.email}).mappings().first()
+    u = db.execute(text("SELECT user_id,name,email,password_hash FROM user WHERE email=:e"), {"e": body.email.lower()}).mappings().first()
     if not u or not verify_password(body.password, u["password_hash"]):
         raise HTTPException(401, "Invalid email or password")
     return {"token": make_token(u["user_id"]), "user": {"user_id": u["user_id"], "name": u["name"], "email": u["email"]}}
@@ -87,4 +92,7 @@ def login(body: LoginIn, db: Session = Depends(get_db)):
 
 @router.get("/me")
 def me(uid: int = Depends(current_user), db: Session = Depends(get_db)):
-    return dict(db.execute(text("SELECT user_id,name,email,role,created_at FROM user WHERE user_id=:u"), {"u": uid}).mappings().first())
+    row = db.execute(text("SELECT user_id,name,email,role,created_at FROM user WHERE user_id=:u"), {"u": uid}).mappings().first()
+    if row is None:
+        raise HTTPException(401, "Login required")
+    return dict(row)

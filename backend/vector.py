@@ -1,17 +1,35 @@
 """Qdrant client + helpers. Point id == product.product_id."""
-import os
+import atexit, os
+from pathlib import Path
 from qdrant_client import QdrantClient, models
 
 COLLECTION = "products"
 _client = None
 
 
+def _local_path() -> str:
+    p = Path(os.getenv("QDRANT_PATH", "qdrant_data"))
+    return str(p if p.is_absolute() else Path(__file__).resolve().parent / p)
+
+
 def client() -> QdrantClient:
     global _client
     if _client is None:
         url = os.getenv("QDRANT_URL")
-        _client = QdrantClient(url=url) if url else QdrantClient(path=os.getenv("QDRANT_PATH", "./qdrant_data"))
+        _client = QdrantClient(url=url) if url else QdrantClient(path=_local_path())
     return _client
+
+
+def close():
+    global _client
+    if _client is not None:
+        try:
+            _client.close()
+        finally:
+            _client = None
+
+
+atexit.register(close)
 
 
 def ensure_collection(dim: int, recreate=False):

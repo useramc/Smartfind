@@ -4,7 +4,9 @@ from pathlib import Path
 from datetime import datetime, timezone
 from decimal import Decimal
 
+import os
 import mysql.connector
+from dotenv import dotenv_values
 
 
 # --------------------------------------------------
@@ -16,6 +18,7 @@ DATASET_DIR = PROJECT_DIR / "SmartFind_Dataset"
 
 DB_CONFIG = {
     "host": "localhost",
+    "port": 3306,
     "user": "root",
     "password": "",  # Entered securely when the script runs
     "database": "smartfind",
@@ -96,11 +99,10 @@ def description_text(description):
         return None
 
     if isinstance(description, list):
-        return "\n".join(
-            str(item) for item in description if item
-        ) or None
+        description = "\n".join(str(item) for item in description if item)
 
-    return str(description)
+    # MySQL TEXT holds 65,535 bytes; stay safely below it.
+    return str(description)[:20000] or None
 
 
 # --------------------------------------------------
@@ -108,8 +110,12 @@ def description_text(description):
 # --------------------------------------------------
 
 def main():
-    password = getpass.getpass("Enter MySQL root password: ")
-    DB_CONFIG["password"] = password
+    env = dotenv_values(PROJECT_DIR / "backend" / ".env")
+    DB_CONFIG["host"] = env.get("DB_HOST") or DB_CONFIG["host"]
+    DB_CONFIG["port"] = int(env.get("DB_PORT") or 3306)
+    DB_CONFIG["user"] = env.get("DB_USER") or DB_CONFIG["user"]
+    DB_CONFIG["database"] = env.get("DB_NAME") or DB_CONFIG["database"]
+    DB_CONFIG["password"] = env["DB_PASSWORD"] if env.get("DB_PASSWORD") is not None else getpass.getpass("MySQL password: ")
 
     connection = mysql.connector.connect(**DB_CONFIG)
     cursor = connection.cursor()
@@ -119,9 +125,9 @@ def main():
         cursor.execute("SELECT DATABASE()")
         database_name = cursor.fetchone()[0]
 
-        if database_name != "smartfind":
+        if database_name != DB_CONFIG["database"]:
             raise RuntimeError(
-                f"Expected database 'smartfind', "
+                f"Expected database '{DB_CONFIG['database']}', "
                 f"but connected to '{database_name}'."
             )
 
@@ -239,11 +245,11 @@ def main():
                     product_rows.append((
                         parent_asin,
                         category_ids[category_name],
-                        title,
+                        str(title).strip()[:1000],
                         description_text(
                             product.get("description")
                         ),
-                        product.get("store"),
+                        (product.get("store") or None) and str(product.get("store"))[:255],
                         price,
                         average_rating,
                         rating_number,
@@ -438,7 +444,7 @@ def main():
                         review.get("asin"),
                         review.get("user_id"),
                         Decimal(str(rating)),
-                        review.get("title"),
+                        (review.get("title") or "")[:1000] or None,
                         review.get("text"),
                         convert_timestamp(review.get("timestamp")),
                         helpful_vote,

@@ -8,5 +8,6 @@ pydantic[email]>=2
 mysql-connector-python
 numpy
 qdrant-client>=1.10
-# Optional but recommended for real semantic embeddings (downloads a model from HuggingFace on first run):
+requests
+# Real semantic embeddings (downloads ~90MB model from HuggingFace on first run; falls back to hash if unavailable):
 sentence-transformers
