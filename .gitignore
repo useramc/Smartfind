@@ -155,3 +155,12 @@ __pycache__/
 *.py[cod]
 qdrant_data/
 backend/qdrant_data/
+backend/qdrant_data_backup/
+
+# Next.js frontend (frontend-next/)
+node_modules/
+.next/
+.env.local
+!.env.local.example
+backend/qdrant_data/
+backend/qdrant_data_backup/
