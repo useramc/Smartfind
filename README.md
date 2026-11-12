@@ -7,7 +7,7 @@ Dataset: 4 Amazon categories x 5,000 products (+200 reviews each) is already in 
 backend/         FastAPI API (Python) – also still serves the original single-page site at /app/
 frontend-next/   Next.js (App Router) frontend – the main UI, talks to the backend API
 frontend/        Original single-file HTML frontend (kept for reference)
-database/        schema.sql (MySQL 8)
+database/        schema.sql (tables) + advanced.sql (ALTERs, views, procedure, function, triggers, FULLTEXT)
 import_dataset.py  Loads SmartFind_Dataset/ into MySQL
 ```
 
@@ -72,7 +72,8 @@ pip install -r requirements.txt       # includes sentence-transformers/PyTorch: 
 cp .env.example .env
 ```
 Edit `backend/.env`: set `DB_PASSWORD` to your MySQL root password and `SECRET_KEY` to a long random string
-(e.g. output of `python -c "import secrets; print(secrets.token_hex(32))"`). Never commit `.env`.
+(e.g. output of `python -c "import secrets; print(secrets.token_hex(32))"`). Also set `ADMIN_EMAIL` /
+`ADMIN_PASSWORD` (min 6 characters): `migrate.py` creates that admin account. Never commit `.env`.
 
 ### 3. Database: schema, data, vector index
 ```bash
@@ -80,8 +81,13 @@ cd ..                                  # back to project root
 mysql -u root -p < database/schema.sql # DROPS and recreates the `smartfind` database
 backend/venv/Scripts/python import_dataset.py      # reads credentials from backend/.env
 cd backend
+python migrate.py                      # database/advanced.sql + seeds the admin user from .env
 python index_products.py --recreate    # embeds all ~20k products into Qdrant (5-10 min on CPU)
 ```
+`migrate.py` is safe to re-run: ALTERs that are already applied are skipped, and views, routines and
+triggers are re-created. It never drops or re-imports data. **On an existing database, just run
+`python migrate.py`**: the imported data and the Qdrant index stay as they are, because product ids don't
+change. (You can also run the SQL by hand once with `mysql -u root -p smartfind < database/advanced.sql`.)
 Expected row counts: `category` 4, `product` 19,999, `product_feature` 88,086, `product_source` 19,999, `review` 800.
 Check with:
 ```bash
@@ -121,7 +127,31 @@ unchanged, including dark mode via `prefers-color-scheme`). Login tokens are sto
 | `components/Header.js`, `SearchBar.js`, `Results.js`, `Pager.js` | Page sections |
 | `components/ProductCard.js`, `ProductGrid.js`, `ProductDetail.js` | Product cards and the product modal |
 | `components/Modal.js`, `AuthForm.js`, `Toast.js` | Modal, login/register form, toast |
+| `app/admin/page.js`, `components/AdminDashboard.js` | `/admin` (ADMIN only): stats dashboard, edit price/stock, delete reviews |
 | `lib/api.js` | `fetch` wrapper (bearer token, error messages, auto-logout on expired token) |
+
+## Roles and admin
+- Roles: `CUSTOMER` (every registration) and `ADMIN` (enforced by the `chk_user_role` CHECK constraint).
+- The admin account comes from `ADMIN_EMAIL` / `ADMIN_PASSWORD` in `backend/.env`; `migrate.py` stores it
+  PBKDF2-hashed. To make another user an admin: `UPDATE user SET role='ADMIN' WHERE email='...';`.
+- Every `/admin/*` endpoint checks the role in MySQL on each request: **401** when logged out, **403** for customers.
+- The header shows a **🛠 Admin** button only to admins. `/admin` has catalogue stats, product lookup
+  (FULLTEXT or id), price/stock edit with price history, and review deletion.
+
+## Advanced database features (`database/advanced.sql`)
+| Feature | Object | Used by |
+|---|---|---|
+| ALTER TABLE | `chk_user_role`, `product.stock_quantity`, `review_count`, `review_avg`, FULLTEXT index | migration on the existing DB |
+| Views | `v_category_stats`, `v_product_review_summary` (LEFT JOIN + GROUP BY + HAVING), `v_user_activity` (derived-table subqueries) | `GET /admin/stats` |
+| Stored function | `fn_user_engagement(user_id)` (3 x saved + 2 x click + views + searches) | `GET /admin/stats` (users) |
+| Stored procedure | `sp_admin_update_product(id, price, stock, admin_id)`: validation with SIGNAL, transaction, EXIT handler + ROLLBACK | `PUT /admin/products/{id}` |
+| Triggers | `trg_review_after_insert` / `trg_review_after_delete` (keep `review_count`/`review_avg` correct), `trg_product_price_audit` (writes `price_audit`, syncs the Amazon `product_source` price) | review delete, price edit |
+| FULLTEXT search | `ft_product_name_description` on `product(name, description)` | `GET /admin/products?q=`, keyword fallback in `POST /search/` when vector search is unavailable |
+| JOIN / HAVING / subqueries | top brands (`HAVING COUNT(*) >= 10`), above-category-average prices (derived table), totals (scalar subqueries), price audit (JOIN + LEFT JOIN) | `GET /admin/stats`, `GET /admin/price-audit` |
+| Transactions | `import_dataset.py` (all-or-nothing import), `sp_admin_update_product` | |
+
+`product.average_rating` / `rating_number` are still Amazon's own figures. `review_count` / `review_avg` summarise
+SmartFind's `review` table and are maintained by the triggers.
 
 ## Notes
 - Embeddings: `sentence-transformers/all-MiniLM-L6-v2` (downloaded on first run, needs internet). If it can't load,
@@ -135,5 +165,6 @@ unchanged, including dark mode via `prefers-color-scheme`). Login tokens are sto
 - `product_source` holds Amazon only; add rows for other platforms and the product page lists them automatically.
 
 ## API
-`POST /auth/register|login`, `GET /auth/me` · `POST /search/`, `GET /search/history` · `GET /products/`, `/products/{id}`,
+`POST /auth/register|login`, `GET/PUT /auth/me` · `POST /search/`, `GET /search/history` · `GET /products/`, `/products/{id}`,
 `/products/categories`, `/products/{id}/reviews`, `/products/{id}/similar` · `GET/PUT/DELETE /me/saved[/{id}]`, `POST /me/click`, `GET /me/recommendations`
+· Admin only: `GET /admin/stats`, `GET /admin/products?q=`, `PUT /admin/products/{id}`, `GET /admin/price-audit`, `DELETE /admin/reviews/{id}`

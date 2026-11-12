@@ -125,7 +125,8 @@ export function AppProvider({ children }) {
       setMsg(
         `${d.count} results for “${q}”` +
           (d.budget_applied != null ? ` · budget ≤ $${d.budget_applied}` : "") +
-          (d.embedding_backend === "hash" ? " · (offline keyword-hash embeddings)" : "")
+          (d.embedding_backend === "hash" ? " · (offline keyword-hash embeddings)" : "") +
+          (d.search_backend === "fulltext" ? " · (keyword fallback)" : "")
       );
       d.count ? cards(d.products) : empty("No matching products. Try a broader description or a higher budget.");
       setPager(null);
@@ -261,7 +262,13 @@ export function AppProvider({ children }) {
       }
       if (tokenRef.current) {
         try {
-          await api("/auth/me");
+          // Refresh the stored user (name/role may have changed, e.g. promoted to ADMIN).
+          const me = await api("/auth/me");
+          const u = { user_id: me.user_id, name: me.name, email: me.email, role: me.role };
+          setUser(u);
+          try {
+            localStorage.setItem("sf_user", JSON.stringify(u));
+          } catch (e) {}
         } catch (e) {
           return;
         }
@@ -282,6 +289,7 @@ export function AppProvider({ children }) {
     qRef, bRef, cRef, rRef, sRef,
     home, search, browse, repeatSearch, showSaved, showRecs, showHistory, openProduct, toggleSave,
     authForm, doAuth, logout, closeBox, isLoggedIn,
+    api, toast,
   };
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }

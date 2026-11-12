@@ -36,10 +36,18 @@ def ensure_collection(dim: int, recreate=False):
     c = client()
     exists = c.collection_exists(COLLECTION)
     if exists and recreate:
+        # Local on-disk mode: delete_collection does not close the collection's SQLite file, and on
+        # Windows the folder then can't be removed (silently), so old points survived --recreate.
+        local = getattr(c, "_client", None)
+        coll = getattr(local, "collections", {}).get(COLLECTION) if local is not None else None
+        if coll is not None and hasattr(coll, "close"):
+            coll.close()
         c.delete_collection(COLLECTION)
         exists = False
     if not exists:
         c.create_collection(COLLECTION, vectors_config=models.VectorParams(size=dim, distance=models.Distance.COSINE))
+    if recreate and c.count(COLLECTION).count:
+        raise RuntimeError(f"Could not empty Qdrant collection '{COLLECTION}'; delete {_local_path()} and re-run.")
 
 
 def build_filter(budget_max=None, category_id=None, min_rating=None):

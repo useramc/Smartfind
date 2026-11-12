@@ -276,6 +276,15 @@ CREATE TABLE product_feature (
 
 
 -- ============================================================
+-- NEXT STEP
+-- Roles, stock and review-summary columns, the price_audit table,
+-- views, stored procedure/function, triggers and the FULLTEXT
+-- index are added by database/advanced.sql (run: cd backend &&
+-- python migrate.py), after the dataset import.
+-- ============================================================
+
+
+-- ============================================================
 -- VERIFY TABLE CREATION
 -- ============================================================
 

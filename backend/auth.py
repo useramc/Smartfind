@@ -57,6 +57,15 @@ def current_user(uid=Depends(optional_user)):
     return uid
 
 
+def admin_user(uid: int = Depends(current_user), db: Session = Depends(get_db)):
+    """Role check for admin-only endpoints: 401 if not logged in, 403 if logged in but not an ADMIN.
+    The role is read from MySQL on every request, so promoting/demoting a user takes effect at once."""
+    role = db.execute(text("SELECT role FROM user WHERE user_id=:u"), {"u": uid}).scalar()
+    if role != "ADMIN":
+        raise HTTPException(403, "Admin access required")
+    return uid
+
+
 class RegisterIn(BaseModel):
     name: str
     email: EmailStr
@@ -66,6 +75,10 @@ class RegisterIn(BaseModel):
 class LoginIn(BaseModel):
     email: EmailStr
     password: str
+
+
+class ProfileIn(BaseModel):
+    name: str
 
 
 @router.post("/register")
@@ -79,15 +92,15 @@ def register(body: RegisterIn, db: Session = Depends(get_db)):
     r = db.execute(text("INSERT INTO user (name,email,password_hash) VALUES (:n,:e,:p)"),
                    {"n": body.name, "e": body.email, "p": hash_password(body.password)})
     db.commit()
-    return {"token": make_token(r.lastrowid), "user": {"user_id": r.lastrowid, "name": body.name, "email": body.email}}
+    return {"token": make_token(r.lastrowid), "user": {"user_id": r.lastrowid, "name": body.name, "email": body.email, "role": "CUSTOMER"}}
 
 
 @router.post("/login")
 def login(body: LoginIn, db: Session = Depends(get_db)):
-    u = db.execute(text("SELECT user_id,name,email,password_hash FROM user WHERE email=:e"), {"e": body.email.lower()}).mappings().first()
+    u = db.execute(text("SELECT user_id,name,email,role,password_hash FROM user WHERE email=:e"), {"e": body.email.lower()}).mappings().first()
     if not u or not verify_password(body.password, u["password_hash"]):
         raise HTTPException(401, "Invalid email or password")
-    return {"token": make_token(u["user_id"]), "user": {"user_id": u["user_id"], "name": u["name"], "email": u["email"]}}
+    return {"token": make_token(u["user_id"]), "user": {"user_id": u["user_id"], "name": u["name"], "email": u["email"], "role": u["role"]}}
 
 
 @router.get("/me")
@@ -96,3 +109,14 @@ def me(uid: int = Depends(current_user), db: Session = Depends(get_db)):
     if row is None:
         raise HTTPException(401, "Login required")
     return dict(row)
+
+
+@router.put("/me")
+def update_profile(body: ProfileIn, uid: int = Depends(current_user), db: Session = Depends(get_db)):
+    """Profile update (UPDATE): change the display name of the logged-in user."""
+    name = body.name.strip()[:100]
+    if not name:
+        raise HTTPException(400, "Name cannot be empty")
+    db.execute(text("UPDATE user SET name=:n WHERE user_id=:u"), {"n": name, "u": uid})
+    db.commit()
+    return me(uid, db)

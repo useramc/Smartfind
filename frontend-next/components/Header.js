@@ -18,6 +18,9 @@ export default function Header() {
         <button className="sm" onClick={() => go("/saved", showSaved)}>♥ Saved</button>
         <button className="sm" onClick={() => go("/for-you", showRecs)}>✨ For you</button>
         <button className="sm" onClick={() => go("/history", showHistory)}>🕘 History</button>
+        {ready && user?.role === "ADMIN" ? (
+          <button className="sm" onClick={() => router.push("/admin")}>🛠 Admin</button>
+        ) : null}
         <span id="auth">
           {ready &&
             (user ? (

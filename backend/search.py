@@ -34,14 +34,43 @@ def rerank(sim: float, rating, n) -> float:
     return 0.75 * sim + 0.17 * r + 0.08 * pop
 
 
+def fulltext_search(db: Session, q: str, budget, category_id, min_rating, limit: int):
+    """Keyword fallback using the FULLTEXT index ft_product_name_description (database/advanced.sql).
+    Returns (ids, scores) ranked with the same quality blend as the semantic search."""
+    where, p = ["MATCH(name, description) AGAINST (:q IN NATURAL LANGUAGE MODE)"], {"q": q, "n": limit * 3}
+    if budget is not None: where.append("price <= :b"); p["b"] = budget
+    if category_id is not None: where.append("category_id = :c"); p["c"] = category_id
+    if min_rating is not None: where.append("average_rating >= :r"); p["r"] = min_rating
+    try:
+        rows = db.execute(text(f"""SELECT product_id, average_rating, rating_number,
+                MATCH(name, description) AGAINST (:q IN NATURAL LANGUAGE MODE) AS rel
+            FROM product WHERE {' AND '.join(where)} ORDER BY rel DESC LIMIT :n"""), p).all()
+    except Exception as e:  # e.g. advanced.sql not applied yet (no FULLTEXT index)
+        print(f"[search] FULLTEXT fallback unavailable ({e})")
+        db.rollback()
+        return [], {}
+    top = max((r.rel for r in rows), default=0) or 1
+    scored = sorted(((rerank(r.rel / top, r.average_rating, r.rating_number), r.product_id) for r in rows), key=lambda x: -x[0])[:limit]
+    return [i for _, i in scored], {i: s for s, i in scored}
+
+
 @router.post("/")
 def semantic_search(body: SearchIn, db: Session = Depends(get_db), uid=Depends(optional_user)):
     budget = body.budget_max if body.budget_max is not None else extract_budget(body.query)
-    vec = embeddings.embed([body.query])[0]
-    hits = vector.query(vec, limit=body.limit * 3, flt=vector.build_filter(budget, body.category_id, body.min_rating))
-    scored = sorted(((rerank(h.score, h.payload.get("average_rating"), h.payload.get("rating_number")), h) for h in hits), key=lambda x: -x[0])[: body.limit]
-    ids = [h.id for _, h in scored]
-    products = fetch_ordered(db, ids, {h.id: s for s, h in scored})
+    hits = []
+    try:
+        vec = embeddings.embed([body.query])[0]
+        hits = vector.query(vec, limit=body.limit * 3, flt=vector.build_filter(budget, body.category_id, body.min_rating))
+    except Exception as e:  # Qdrant locked/missing collection etc.
+        print(f"[search] vector search unavailable ({e}); using FULLTEXT fallback")
+    if hits:
+        search_backend = "vector"
+        scored = sorted(((rerank(h.score, h.payload.get("average_rating"), h.payload.get("rating_number")), h) for h in hits), key=lambda x: -x[0])[: body.limit]
+        ids, scores = [h.id for _, h in scored], {h.id: s for s, h in scored}
+    else:
+        search_backend = "fulltext"
+        ids, scores = fulltext_search(db, body.query, budget, body.category_id, body.min_rating, body.limit)
+    products = fetch_ordered(db, ids, scores)
 
     r = db.execute(text("INSERT INTO search_request (user_id, query_text, budget_max) VALUES (:u,:q,:b)"),
                    {"u": uid, "q": body.query[:500], "b": budget})
@@ -49,7 +78,7 @@ def semantic_search(body: SearchIn, db: Session = Depends(get_db), uid=Depends(o
         db.execute(text("INSERT INTO search_recommendation (request_id, product_id, recommendation_score) VALUES (:r,:p,:s)"),
                    {"r": r.lastrowid, "p": p["product_id"], "s": min(p["score"], 9.99)})
     db.commit()
-    return {"request_id": r.lastrowid, "query": body.query, "budget_applied": budget, "embedding_backend": embeddings.mode(),
+    return {"request_id": r.lastrowid, "query": body.query, "budget_applied": budget, "embedding_backend": embeddings.mode(), "search_backend": search_backend,
             "count": len(products), "products": products}
 
 

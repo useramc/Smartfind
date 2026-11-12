@@ -10,6 +10,7 @@ from products import router as products_router
 from search import router as search_router
 from auth import router as auth_router
 from users import router as users_router
+from admin import router as admin_router
 
 app = FastAPI(
     title="SmartFind API",
@@ -17,7 +18,7 @@ app = FastAPI(
     version="1.0.0",
 )
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
-for r in (auth_router, products_router, search_router, users_router):
+for r in (auth_router, products_router, search_router, users_router, admin_router):
     app.include_router(r)
 
 

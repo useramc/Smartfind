@@ -9,8 +9,7 @@ export default function RootLayout({ children }) {
     <html lang="en">
       <body>
         <AppProvider>
-          <AppShell />
-          {children}
+          <AppShell>{children}</AppShell>
         </AppProvider>
       </body>
     </html>
